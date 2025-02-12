@@ -11,18 +11,12 @@
 #include <stdlib.h>
 #include <assert.h>
 #include "dctz.h"
-#ifdef WITH_Z_CHECKER
-#include "zc.h"
-#endif
 
 int main(int argc, char * argv[])
 {
   size_t r5 = 0, r4 = 0, r3 = 0, r2 = 0, r1 = 0;
   size_t type_size = 0;
   char *oriFilePath, outputFilePath[640];
-#ifdef WITH_Z_CHECKER
-  char *solName = NULL;
-#endif
   char *varName;
   double error_bound;
   t_var *var_r; /* buffer for reconstructed data */
@@ -31,20 +25,11 @@ int main(int argc, char * argv[])
   int N, min_argc;
   t_datatype datatype;
 
-#ifdef WITH_Z_CHECKER
-  min_argc = 7;
-#else
   min_argc = 6;
-#endif
 
   if (argc < min_argc) {
-#ifdef WITH_Z_CHECKER
-    printf("Test case: %s -d|-f [err bound] [var name] [srcFilePath] [dimension sizes...] solName \n", argv[0]);
-    printf("Example: %s -d 1E-3 sedov testdata/x86/testfloat_8_8_128.dat 8 8 128 dctz-ec(1E-3) \n", argv[0]);
-#else
     printf("Test case: %s -d|-f [err bound] [var name] [srcFilePath] [dimension sizes...] \n", argv[0]);
     printf("Example: %s -d 1E-3 sedov testdata/x86/testfloat_8_8_128.dat 8 8 128 \n", argv[0]);
-#endif
     exit(0);
   }
 
@@ -53,28 +38,7 @@ int main(int argc, char * argv[])
 
   assert (argc >= 6);
 
-#ifdef WITH_Z_CHECKER
-  if (argc >= 7) { /* 1D */
-    r1 = N = atoi(argv[5]);
-    solName = argv[6]; /* dummy when z-checker is not set */
-  }
-  if (argc >= 8) { /* 2D */
-    r2 = atoi(argv[6]);
-    N = r1*r2;
-    solName = argv[7]; /* dummy when z-checker is not set */
-  }
-  if (argc >= 9) { /* 3D */
-    r3 = atoi(argv[7]);
-    N = r1*r2*r3;
-    solName = argv[8]; /* dummy when z-checker is not set */
-  }
-  if (argc >= 10) { /* 4D */
-    r4 = atoi(argv[8]);
-    N = r1*r2*r3*r4;
-    solName = argv[9]; /* dummy when z-checker is not set */
-  }
-#else
-    if (argc >= 6) { /* 1D */
+  if (argc >= 6) { /* 1D */
     r1 = N = atoi (argv[5]);
   }
   if (argc >= 7) { /* 2D */
@@ -89,7 +53,6 @@ int main(int argc, char * argv[])
     r4 = atoi(argv[8]);
     N = r1*r2*r3*r4;
   }
-#endif
 
   printf("total number of elements = %d\n", N);
 
@@ -102,15 +65,7 @@ int main(int argc, char * argv[])
   sprintf(outputFilePath, "%s.ec.%s.z", oriFilePath, argv[2]);
 #endif /* USE_QTABLE */
 
-#ifdef WITH_Z_CHECKER
-  ZC_Init("zc.config"); /* hard coded */
-#endif /* WITH_Z_CHECKER */
-
   size_t outSize;
-#ifdef WITH_Z_CHECKER
-  ZC_DataProperty* dataProperty = NULL;
-  ZC_CompareData *compareResult = NULL;
-#endif /* WITH_Z_CHECKER */
   FILE *fp_in = fopen(oriFilePath, "rb");
   if (fp_in == NULL) {
     perror("Failed: ");
@@ -172,12 +127,7 @@ int main(int argc, char * argv[])
     perror("Error reading file");
     exit(EXIT_FAILURE);
   }
-#ifdef WITH_Z_CHECKER
-  if (datatype == DOUBLE)
-    dataProperty = ZC_startCmpr(varName, ZC_DOUBLE, var->buf.d, r5, r4, r3, r2, r1);
-  else /* FLOAT */
-    dataProperty = ZC_startCmpr(varName, ZC_FLOAT, var->buf.f, r5, r4, r3, r2, r1);
-#endif /* WITH_Z_CHECKER */
+
   dctz_compress(var, N, &outSize, var_z, error_bound);
 
   printf("oriFilePath = %s, outputFilePath = %s, datatype = %s, error = %s, dim1 = %zu, dim2 = %zu, dim3 = %zu, dim4 = %zu\n", oriFilePath, outputFilePath, datatype==FLOAT?"float":"double", argv[2], r1, r2, r3, r4);
@@ -209,10 +159,6 @@ int main(int argc, char * argv[])
     }
   }
 
-#ifdef WITH_Z_CHECKER
-  compareResult = ZC_endCmpr(dataProperty, solName, outSize);
-#endif /* WITH_Z_CHECKER */
-
   fclose(fp_in);
 
   char zfile[640];
@@ -243,17 +189,8 @@ int main(int argc, char * argv[])
 #endif /* USE_QTABLE */
   FILE *fp_r;
   fp_r = fopen(zfile, "wb");
-#ifdef WITH_Z_CHECKER
-  ZC_startDec();
-#endif /* WITH_Z_CHECKER */
 
   dctz_decompress(var_z, var_r);
-#ifdef WITH_Z_CHECKER
-  if (datatype == DOUBLE)
-    ZC_endDec(compareResult, var_r->buf.d);
-  else /* FLOAT */
-    ZC_endDec(compareResult, var_r->buf.f);
-#endif /* WITH_Z_CHECKER */
 
   if (datatype == DOUBLE)
     icount = fwrite(var_r->buf.d, N*type_size, 1, fp_r);
@@ -266,11 +203,6 @@ int main(int argc, char * argv[])
 
   fclose(fp_r);
 
-#ifdef WITH_Z_CHECKER
-  freeDataProperty(dataProperty);
-  freeCompareResult(compareResult);
-#endif /* WITH_Z_CHECKER */
-
   double cr, psnr;
   cr = (double)(N*type_size)/(double)outSize;
   psnr = calc_psnr(var, var_r, N, error_bound);
@@ -280,10 +212,6 @@ int main(int argc, char * argv[])
   free(var_r);
   free(var);
   printf("done\n");
-
-#ifdef WITH_Z_CHECKER
-  ZC_Finalize();
-#endif /* WITH_Z_CHECKER */
 
   return 0;
 }
