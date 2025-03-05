@@ -59,7 +59,8 @@ typedef struct
 } t_var;
 
 /* unsigned char => 1 byte: 0-255 */
-/* unsigned short => 2 byte: 0-1023 */
+/* unsigned short => 2 bytes: 0-1023 */
+/* unsigned int => 4 bytes: 0-4294967295 */
 typedef unsigned char t_bin_id;
 
 #define NBITS (sizeof(t_bin_id)<<3) /* # of bits (8 or 16) for representing bin index */
